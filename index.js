@@ -27,7 +27,7 @@
       return geoip.close(function() {
         console.log("closed ");
         return exec("rm -r " + file, function(err, out) {
-          var tmp;
+          var found, ips, places, tmp;
           console.log(" deleted geoip db");
           geoip = level(file, {
             keyEncoding: bytewise
@@ -35,12 +35,18 @@
           tmp = level("./data/tmp", {
             valueEncoding: 'json'
           });
+          places = {};
+          found = 0;
+          ips = 0;
           return fs.createReadStream("geoip.csv").pipe(csv({
             delimiter: ",",
             objectMode: true
           })).pipe(through.obj(function(d, enc, next) {
             return tmp.get("id:" + d[4], function(err, n) {
+              ips += 1;
               if (n) {
+                found += 1;
+                places[n] = true;
                 console.log("FOUND geoname id " + d[4] + " :: " + n + "   for IP range " + d[0] + "-" + d[1] + "  (" + d[2] + "-" + d[3] + ")");
                 geoip.put(parseInt(d[2]), n);
                 return geoip.put(parseInt(d[3] + 1), null, next);
@@ -48,7 +54,9 @@
                 return next();
               }
             });
-          }));
+          })).on("end", function() {
+            return console.log("done.\n found " + (Object.keys(places).length) + " places for " + found + " places out of " + ips + " ip ranges");
+          });
         });
       });
     },

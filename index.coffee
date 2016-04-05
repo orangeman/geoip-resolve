@@ -18,15 +18,23 @@ module.exports =
         console.log " deleted geoip db"
         geoip = level file, keyEncoding: bytewise
         tmp = level "./data/tmp", valueEncoding: 'json'
+        places = {}
+        found = 0
+        ips = 0
         fs.createReadStream "geoip.csv"
         .pipe csv delimiter: ",", objectMode: true
         .pipe through.obj (d, enc, next) ->
           tmp.get "id:" + d[4], (err, n) ->
+            ips += 1
             if n
+              found += 1
+              places[n] = true
               console.log "FOUND geoname id #{d[4]} :: #{n}   for IP range #{d[0]}-#{d[1]}  (#{d[2]}-#{d[3]})"
               geoip.put parseInt(d[2]), n
               geoip.put parseInt(d[3] + 1), null, next
             else next()
+        .on "end", () ->
+          console.log "done.\n found #{Object.keys(places).length} places for #{found} places out of #{ips} ip ranges"
 
   resolve: (ip, cb) ->
     s = ip.split "."
